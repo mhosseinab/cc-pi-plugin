@@ -19,6 +19,11 @@ test(
       });
       assert.notEqual(out.code, 0, JSON.stringify(out));
       assert.equal(out.data?.status, 'failed', JSON.stringify(out));
+      assert.equal(out.data.jobUsage.complete, false);
+      if (prompt === 'LIVE_TOKEN_LIMIT') {
+        assert.equal(out.data.jobUsage.tokens.cacheRead, 10);
+        assert.equal(out.data.jobUsage.tokens.output, 10);
+      }
     }
     const beforeTimeout = f.requests.length;
     const timedOut = await callCompanion(f, 'task', {
@@ -31,6 +36,7 @@ test(
       'The deadline must interrupt a real provider call.',
     );
     assert.equal(timedOut.data?.status, 'timed_out', JSON.stringify(timedOut));
+    assert.equal(timedOut.data.jobUsage.complete, false);
     const recovered = await callCompanion(f, 'task', {
       prompt: 'A fresh job can start after the deadline.',
       model: 'fixture/fixture-model',
@@ -61,6 +67,19 @@ test('real Pi: edits, explicit continuation, and exact model selection', live, a
   assert.ok(first.data.sessionID, JSON.stringify(first));
   assert.ok(first.data.sessionFile, JSON.stringify(first));
   assert.ok(fs.existsSync(first.data.sessionFile));
+  assert.equal(first.data.jobUsage.complete, true, JSON.stringify(first.data.jobUsage));
+  assert.equal(first.data.jobUsage.source, 'session_entries');
+  assert.equal(first.data.jobUsage.records, 2);
+  assert.deepEqual(first.data.jobUsage.tokens, {
+    input: 30,
+    output: 20,
+    cacheRead: 20,
+    cacheWrite: 0,
+    total: 70,
+  });
+  assert.equal(first.data.jobUsage.assistantCacheHitRate, 0.4);
+  assert.equal(first.data.jobUsage.costSource, 'estimated');
+  assert.ok(Math.abs(first.data.jobUsage.cost - 0.000072) < 1e-12);
 
   const beforeResume = f.requests.length;
   const resumed = await callCompanion(f, 'task', {
@@ -79,6 +98,30 @@ test('real Pi: edits, explicit continuation, and exact model selection', live, a
   assert.match(JSON.stringify(resumeRequests[0].messages), /LIVE_WRITE_TASK/);
   assert.match(JSON.stringify(resumeRequests[0].messages), /LIVE_RESUME_TASK/);
   assert.match(JSON.stringify(resumeRequests[0].messages), /Written by the real Pi write tool/);
+  assert.equal(resumed.data.jobUsage.complete, true, JSON.stringify(resumed.data.jobUsage));
+  assert.equal(resumed.data.jobUsage.records, 1);
+  assert.deepEqual(resumed.data.jobUsage.tokens, {
+    input: 15,
+    output: 10,
+    cacheRead: 10,
+    cacheWrite: 0,
+    total: 35,
+  });
+  assert.equal(resumed.data.usage.tokens.total, 105);
+  assert.ok(Math.abs(resumed.data.jobUsage.cost - 0.000036) < 1e-12);
+
+  // An ancestor job points to the same now-extended file, not a historical snapshot.
+  const ancestor = await callCompanion(f, 'task', {
+    prompt: 'Continue again from the original job ID.',
+    resume: first.data.id,
+    timeoutSeconds: 45,
+  });
+  assert.equal(ancestor.code, 0, JSON.stringify(ancestor));
+  assert.equal(ancestor.data.jobUsage.records, 1);
+  assert.equal(ancestor.data.jobUsage.tokens.total, 35);
+  assert.equal(ancestor.data.usage.tokens.total, 140);
+  const original = await callCompanion(f, 'result', { job: first.data.id });
+  assert.deepEqual(original.data.jobUsage, first.data.jobUsage);
 
   // Invalid selections must fail before sending a task to any provider.
   const beforeInvalid = f.requests.length;

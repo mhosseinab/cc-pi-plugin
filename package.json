@@ -18,7 +18,7 @@
     "package": "node scripts/package.mjs",
     "release": "semantic-release",
     "release:dry-run": "semantic-release --dry-run",
-    "test:runtime": "node --test tests/runtime.test.mjs tests/reviewer-policy.test.mjs tests/package.test.mjs tests/plugin.test.mjs",
+    "test:runtime": "node --test tests/runtime.test.mjs tests/usage.test.mjs tests/reviewer-policy.test.mjs tests/package.test.mjs tests/plugin.test.mjs",
     "test:release": "node --test tests/release.test.mjs",
     "test:live": "node --test tests/live.test.mjs"
   },

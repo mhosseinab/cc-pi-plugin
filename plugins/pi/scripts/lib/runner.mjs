@@ -6,6 +6,7 @@ import { BUILTIN_TOOLS, REVIEW_TOOLS } from './input.mjs';
 import { binary, inspect, runArgs, publicModel } from './pi.mjs';
 import { PiRPC } from './rpc.mjs';
 import { reviewPrompt } from './review.mjs';
+import { JobUsage } from './usage.mjs';
 
 const TEXT_LIMIT = 2 * 1024 * 1024;
 const ACTIVE = ['starting', 'running'];
@@ -78,6 +79,8 @@ export async function run(command, initialInput, root, state) {
   const review = command.includes('review');
   const controller = new AbortController();
   const { signal } = controller;
+  const usage = new JobUsage();
+  let usageFinalized = false;
   let rpc, timer, poll, cancelPromise, job, stdoutFile, stderrFile;
   let stopping, failure, settled, lastAssistant;
   let controlBusy = false;
@@ -92,6 +95,7 @@ export async function run(command, initialInput, root, state) {
   });
   const save = () => {
     if (!job) return;
+    if (!usageFinalized) job.jobUsage = usage.snapshot();
     job.updatedAt = new Date().toISOString();
     atomicJSON(path.join(dir, 'job.json'), job);
   };
@@ -199,6 +203,7 @@ export async function run(command, initialInput, root, state) {
       error: null,
       controls: [],
       usage: null,
+      jobUsage: null,
       logDirectory: dir,
     };
     save();
@@ -239,6 +244,7 @@ export async function run(command, initialInput, root, state) {
         onRecord: (event) => fs.writeSync(stdoutFile, `${JSON.stringify(event)}\n`),
         onStderr: (chunk) => fs.writeSync(stderrFile, chunk),
         onEvent: (event) => {
+          usage.observe(event);
           job.progress = event.type;
           if (event.type === 'message_start' && event.message?.role === 'assistant') job.text = '';
           if (
@@ -292,6 +298,7 @@ export async function run(command, initialInput, root, state) {
     }
     verifyState(await rpc.request('get_state'), job, input);
     signal.throwIfAborted();
+    usage.start(job);
     job.status = 'running';
     save();
     promptSent = true;
@@ -350,6 +357,8 @@ export async function run(command, initialInput, root, state) {
       if (stopping) job.status = stopping;
       job.error = failure ?? null;
       job.completedAt = new Date().toISOString();
+      job.jobUsage = usage.finish(job.status);
+      usageFinalized = true;
       // Pending controls are visible as undelivered, never silently reused by a later job.
       for (const name of fs.readdirSync(controlsDirectory)) {
         if (!/^\d{13}-[a-f0-9]{32}\.json$/.test(name)) continue;
