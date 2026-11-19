@@ -10,10 +10,10 @@
         "source": "git-subdir",
         "url": "https://github.com/mhosseinab/cc-pi-plugin.git",
         "path": "plugins/pi",
-        "ref": "v1.1.0"
+        "ref": "v1.2.0"
       },
       "description": "Delegate tasks and restricted code reviews to local Pi workers",
-      "version": "1.1.0"
+      "version": "1.2.0"
     }
   ],
   "metadata": {
