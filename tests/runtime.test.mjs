@@ -58,12 +58,32 @@ async function activeJob(f, status = 'running') {
   const until = Date.now() + 10000;
   while (Date.now() < until) {
     const out = await call(f, 'status');
+    assert.equal(out.code, 0, out.stderr);
     const job = out.data.jobs.find((j) => j.status === status);
     if (job) return job;
     await delay(20);
   }
   throw new Error('Job did not start.');
 }
+
+test('status tolerates a new job directory before metadata is published, but not corrupt metadata', async (t) => {
+  const f = fixture(t);
+  const first = await call(f, 'task', { prompt: 'completed' });
+  assert.equal(first.code, 0, first.stderr);
+  const directory = path.join(path.dirname(first.data.logDirectory), 'a'.repeat(32));
+  fs.mkdirSync(directory);
+  const pending = await call(f, 'status');
+  assert.equal(pending.code, 0, pending.stderr);
+  assert.deepEqual(
+    pending.data.jobs.map((job) => job.id),
+    [first.data.id],
+  );
+  assert.equal((await call(f, 'result', { job: 'a'.repeat(32) })).code, 1);
+  fs.writeFileSync(path.join(directory, 'job.json'), '{malformed');
+  const corrupt = await call(f, 'status');
+  assert.equal(corrupt.code, 1);
+  assert.match(corrupt.stderr, /JSON|property|position/i);
+});
 
 test('session continuation works through a trusted symlinked state parent', async (t) => {
   const f = fixture(t);

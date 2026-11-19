@@ -1,3 +1,13 @@
+# 1.0.0 (2026-11-19)
+
+### Bug Fixes
+
+- tolerate job metadata publication during status queries ([5c2c42d](https://github.com/mhosseinab/cc-pi-plugin/commit/5c2c42d2da06cdc8077137b492f7c531d9ab87df))
+
+### Features
+
+- add GPLv3 Pi workers plugin for Claude Code ([261fb79](https://github.com/mhosseinab/cc-pi-plugin/commit/261fb7993f41fb36cfb203baa672612dd2f3595c))
+
 # Changelog
 
 ## 1.0.0
