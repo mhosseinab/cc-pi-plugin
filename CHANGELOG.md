@@ -1,3 +1,9 @@
+# [1.1.0](https://github.com/mhosseinab/cc-pi-plugin/compare/v1.0.0...v1.1.0) (2026-11-19)
+
+### Features
+
+- upgrade plugin release tooling to semantic-release 26 ([#4](https://github.com/mhosseinab/cc-pi-plugin/issues/4)) ([567bfde](https://github.com/mhosseinab/cc-pi-plugin/commit/567bfde5f54094ccd666f87eb4776bc85528ae8d))
+
 # 1.0.0 (2026-11-19)
 
 ### Bug Fixes
