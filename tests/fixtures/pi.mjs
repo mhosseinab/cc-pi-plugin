@@ -21,6 +21,57 @@ if (args.includes('--version')) {
     sessionFile = option('--session');
     sessionID = JSON.parse(fs.readFileSync(sessionFile, 'utf8').split('\n')[0]).id;
   }
+  const entries = fs.existsSync(sessionFile)
+    ? fs.readFileSync(sessionFile, 'utf8').trim().split('\n').map(JSON.parse)
+    : [];
+  let leafId = entries.at(-1)?.type === 'session' ? null : (entries.at(-1)?.id ?? null);
+  const ensureSession = () => {
+    if (entries.length) return;
+    const header = {
+      type: 'session',
+      version: 3,
+      id: sessionID,
+      timestamp: new Date().toISOString(),
+      cwd: process.cwd(),
+    };
+    entries.push(header);
+    if (!process.env.FAKE_NO_SESSION) {
+      fs.mkdirSync(directory, { recursive: true });
+      fs.writeFileSync(sessionFile, `${JSON.stringify(header)}\n`, { mode: 0o600 });
+    }
+  };
+  const appendEntry = (data) => {
+    ensureSession();
+    const entry = {
+      ...data,
+      id: randomUUID().slice(0, 8),
+      parentId: leafId,
+      timestamp: new Date().toISOString(),
+    };
+    entries.push(entry);
+    leafId = entry.id;
+    if (!process.env.FAKE_NO_SESSION) fs.appendFileSync(sessionFile, `${JSON.stringify(entry)}\n`);
+    return entry;
+  };
+  const usage = (overrides = {}) => {
+    const value = {
+      input: 12,
+      output: 5,
+      cacheRead: 24,
+      cacheWrite: 4,
+      cost: {
+        input: 0.125,
+        output: 0.25,
+        cacheRead: 0.0625,
+        cacheWrite: 0.0625,
+        total: 0.5,
+        totalFromProvider: false,
+      },
+      ...overrides,
+    };
+    value.totalTokens = value.input + value.output + value.cacheRead + value.cacheWrite;
+    return value;
+  };
   let model = {
     provider: 'test',
     id: 'model',
@@ -54,20 +105,44 @@ if (args.includes('--version')) {
       success: !error,
       ...(error ? { error } : { data }),
     });
-  const finish = (stopReason = 'stop', text = 'Fixture response ✓') => {
-    active = false;
-    clearInterval(hold);
+  const publishAssistant = (stopReason, text, errorMessage = 'bad credentials') => {
     const message = {
       role: 'assistant',
+      api: 'openai-completions',
+      provider: model.provider,
+      model: model.id,
       content: [{ type: 'text', text }],
+      usage: usage(),
       stopReason,
-      ...(stopReason === 'error' ? { errorMessage: 'bad credentials' } : {}),
+      timestamp: Date.now(),
+      ...(stopReason === 'error' ? { errorMessage } : {}),
     };
+    appendEntry({ type: 'message', message });
     emit({ type: 'message_start', message: { role: 'assistant', content: [] } });
     emit({ type: 'message_update', assistantMessageEvent: { type: 'text_delta', delta: text } });
     emit({ type: 'message_end', message });
+    return message;
+  };
+  const finish = (stopReason = 'stop', text = 'Fixture response ✓') => {
+    if (!active) return;
+    active = false;
+    clearInterval(hold);
+    const message = publishAssistant(stopReason, text);
     emit({ type: 'agent_end', messages: [message], willRetry: false });
     emit({ type: 'agent_settled', aborted: stopReason === 'aborted' });
+  };
+  const stats = () => {
+    const tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
+    let cost = 0;
+    for (const entry of entries) {
+      const value = entry.type === 'message' ? entry.message.usage : entry.usage;
+      if (!value) continue;
+      for (const field of ['input', 'output', 'cacheRead', 'cacheWrite'])
+        tokens[field] += value[field];
+      cost += value.cost.total;
+    }
+    tokens.total = tokens.input + tokens.output + tokens.cacheRead + tokens.cacheWrite;
+    return { sessionId: sessionID, sessionFile, tokens, cost };
   };
   const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
   input.on('line', (line) => {
@@ -101,8 +176,7 @@ if (args.includes('--version')) {
       thinkingLevel = process.env.FAKE_CLAMP ? 'off' : request.level;
       return respond(request);
     }
-    if (request.type === 'get_session_stats')
-      return respond(request, { tokens: { input: 12, output: 5 }, cost: 0 });
+    if (request.type === 'get_session_stats') return respond(request, stats());
     if (request.type === 'clear_queue') return respond(request, { steering: [], followUp: [] });
     if (request.type === 'abort') {
       if (scenario === 'DESCENDANT') return;
@@ -118,16 +192,15 @@ if (args.includes('--version')) {
     }
     if (request.type === 'extension_ui_response') return;
     if (request.type !== 'prompt') return respond(request, undefined, 'Unknown command');
-    fs.mkdirSync(directory, { recursive: true });
-    if (!fs.existsSync(sessionFile))
-      fs.writeFileSync(
-        sessionFile,
-        `${JSON.stringify({ type: 'session', id: sessionID, cwd: process.cwd(), version: 3 })}\n`,
-      );
+    ensureSession();
     active = true;
     scenario = request.message;
     respond(request, { disposition: scenario === 'HANDLED' ? 'handled' : 'started' });
     if (scenario === 'HANDLED') return;
+    appendEntry({
+      type: 'message',
+      message: { role: 'user', content: request.message, timestamp: Date.now() },
+    });
     if (scenario === 'MALFORMED') {
       process.stdout.write('{broken}\n');
       return;
@@ -147,12 +220,52 @@ if (args.includes('--version')) {
       return;
     }
     if (scenario === 'RETRY') {
-      emit({
-        type: 'message_end',
-        message: { role: 'assistant', content: [], stopReason: 'error', errorMessage: 'retryable' },
-      });
+      publishAssistant('error', '', 'retryable');
       emit({ type: 'agent_end', messages: [], willRetry: true });
       return setTimeout(() => finish(), 100);
+    }
+    if (scenario === 'USAGE_OVERHEAD') {
+      const warm = appendEntry({
+        type: 'usage',
+        kind: 'cache_warm',
+        provider: model.provider,
+        model: model.id,
+        usage: usage({
+          input: 0,
+          output: 1,
+          cacheRead: 80,
+          cacheWrite: 0,
+          cost: {
+            input: 0,
+            output: 0.0625,
+            cacheRead: 0.0625,
+            cacheWrite: 0,
+            total: 0.125,
+            totalFromProvider: false,
+          },
+        }),
+      });
+      emit({ type: 'entry_appended', entry: warm });
+      appendEntry({
+        type: 'compaction',
+        summary: 'Earlier fixture context',
+        firstKeptEntryId: leafId,
+        tokensBefore: 1000,
+        usage: usage({
+          input: 6,
+          output: 2,
+          cacheRead: 0,
+          cacheWrite: 2,
+          cost: {
+            input: 0.125,
+            output: 0.0625,
+            cacheRead: 0,
+            cacheWrite: 0.0625,
+            total: 0.25,
+            totalFromProvider: false,
+          },
+        }),
+      });
     }
     if (scenario === 'DESCENDANT') {
       const child = spawn(

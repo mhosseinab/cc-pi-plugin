@@ -67,11 +67,34 @@ A review starts a fresh restricted session and cannot run tests, shell commands,
 
 Without `base`, the prompt includes staged and unstaged tracked diffs and untracked filenames. The reviewer can inspect untracked content using its read tools. With `base`, scope is committed changes from `merge-base(base, HEAD)` through `HEAD`; local uncommitted edits are excluded, and on-disk files can differ from the committed target. Git fsmonitor, executable content filters, external diff drivers, and text conversion are disabled. Submodules are shown as gitlinks; their nested file changes need a separate review. Oversized diffs fail explicitly instead of being silently truncated.
 
+Shared review instructions, the target, and the diff precede the normal or adversarial focus and any additional focus text. This keeps the common prompt prefix stable when the evidence is unchanged. Provider cache reuse is not guaranteed, and reviews still start fresh sessions.
+
 Return actionable findings with path, line, severity, evidence, and impact. Separate uncertainty and coverage limits. Do not apply fixes as part of a review command.
 
 ## Results and limits
 
-The returned job includes its ID, terminal state, error, model, thinking level, tools, session identity, log directory, and recorded output. `text` is the last assistant message, not a concatenation of all intermediate turns. Earlier events remain in the event log and session. Usage is labeled `usage.scope: "session"`: it is cumulative for the Pi session, including earlier resumed work, rather than the isolated cost of the newest job.
+The returned job includes its ID, terminal state, error, model, thinking level, tools, session identity, log directory, and recorded output. `text` is the last assistant message, not a concatenation of all intermediate turns. Earlier events remain in the event log and session.
+
+Use `jobUsage` to report this job's usage, including only the new work when it resumes a session:
+
+| Field                   | Meaning                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `scope`                 | Always `"job"`.                                                                                                                                              |
+| `source`                | `"session_entries"`, `"rpc_events"`, or `"none"`.                                                                                                            |
+| `complete`              | Whether the report has complete recorded usage for the job. Inspect `warnings` when false.                                                                   |
+| `tokens`                | `input`, `output`, `cacheRead`, `cacheWrite`, and `total` token counts across recorded usage.                                                                |
+| `cost`                  | Recorded cost in USD, or `null` when unavailable.                                                                                                            |
+| `costSource`            | `"estimated"`, `"provider"`, `"mixed"`, or `"unknown"`. Label estimates and partly estimated totals explicitly.                                              |
+| `assistantCacheHitRate` | A fraction from 0 to 1 for main assistant calls only, or `null` when unavailable. It excludes warming, compaction, and other usage.                          |
+| `records`               | Number of usage records, not a network-request count.                                                                                                        |
+| `breakdown`             | Groups by usage kind, provider, and model. Each has `records`, `tokens`, `cost`, `costSource`, and `cacheHitRate`. Unknown provider/model values are `null`. |
+| `warnings`              | Reporting limits to include with an incomplete or otherwise qualified result.                                                                                |
+
+Usage kinds include `assistant`, `tool`, `compaction`, `branch_summary`, `cache_warm`, and other kinds recorded by Pi. The primary source is new session entries after the cursor captured before sending this job's prompt, read after process cleanup. If those entries cannot be used, recorded RPC events and the latest unfinished streaming usage snapshot provide an incomplete fallback. Failed, cancelled, and timed-out jobs retain known usage and are marked incomplete. Missing cost in any counted record makes the aggregate cost unknown. A job that never sent a prompt can have known zero usage with source `"none"`; missing records after work started do not establish zero cost.
+
+Show per-job input, cache-read, cache-write, and output tokens, the assistant cache-hit fraction as a percentage when available, and USD cost with its provenance. With `complete: false`, label the figures as incomplete and include the relevant warnings. Do not describe `null` cost or unavailable usage as free. Older saved jobs may have no `jobUsage`; say the per-job report is unavailable.
+
+The existing `usage.scope: "session"` field remains cumulative for the Pi session, including earlier resumed work. It may be shown separately, but never presented as the newest job's cost or summed across resumed jobs. Reporting does not change cache retention, warming, or continuation behavior.
 
 | Boundary                      | Limit   |
 | ----------------------------- | ------- |

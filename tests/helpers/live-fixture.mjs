@@ -80,7 +80,12 @@ export async function createLiveFixture(t) {
           created: 1,
           model: 'fixture-model',
           choices: [],
-          usage: { prompt_tokens: 25, completion_tokens: 10, total_tokens: 35 },
+          usage: {
+            prompt_tokens: 25,
+            prompt_tokens_details: { cached_tokens: 10 },
+            completion_tokens: 10,
+            total_tokens: 35,
+          },
         })}\n\n`,
       );
       res.end('data: [DONE]\n\n');
@@ -114,7 +119,7 @@ export async function createLiveFixture(t) {
               input: ['text'],
               contextWindow: 64000,
               maxTokens: 2048,
-              cost: { input: 1, output: 2, cacheRead: 0, cacheWrite: 0 },
+              cost: { input: 1, output: 2, cacheRead: 0.1, cacheWrite: 0 },
             },
           ],
         },

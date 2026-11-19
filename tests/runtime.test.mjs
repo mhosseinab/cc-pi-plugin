@@ -66,6 +66,37 @@ async function activeJob(f, status = 'running') {
   throw new Error('Job did not start.');
 }
 
+function assertAssistantUsage(value, { model = 'model', records = 1, complete = true } = {}) {
+  assert.equal(value.scope, 'job');
+  assert.equal(value.source, 'session_entries');
+  assert.equal(value.complete, complete);
+  assert.equal(value.records, records);
+  assert.deepEqual(value.tokens, {
+    input: 12 * records,
+    output: 5 * records,
+    cacheRead: 24 * records,
+    cacheWrite: 4 * records,
+    total: 45 * records,
+  });
+  assert.equal(value.cost, 0.5 * records);
+  assert.equal(value.costSource, 'estimated');
+  assert.equal(value.assistantCacheHitRate, 0.6);
+  assert.deepEqual(value.breakdown, [
+    {
+      kind: 'assistant',
+      provider: 'test',
+      model,
+      records,
+      tokens: value.tokens,
+      cost: value.cost,
+      costSource: 'estimated',
+      cacheHitRate: 0.6,
+    },
+  ]);
+  if (complete) assert.deepEqual(value.warnings, []);
+  else assert.ok(value.warnings.length > 0);
+}
+
 test('status tolerates a new job directory before metadata is published, but not corrupt metadata', async (t) => {
   const f = fixture(t);
   const first = await call(f, 'task', { prompt: 'completed' });
@@ -276,6 +307,109 @@ test('resume selects recorded session and inherits model/thinking/tools but not 
   assert.match(tampered.stderr, /working directory/);
 });
 
+test('per-job usage starts at the live session boundary when resuming an ancestor job', async (t) => {
+  const f = fixture(t);
+  const first = await call(f, 'task', { prompt: 'first', model: 'test/model' });
+  assert.equal(first.code, 0, first.stderr);
+  assertAssistantUsage(first.data.jobUsage);
+  assert.equal(first.data.usage.scope, 'session');
+  assert.equal(first.data.usage.tokens.total, 45);
+  assert.equal(first.data.usage.cost, 0.5);
+  const firstFile = path.join(first.data.logDirectory, 'job.json');
+  const firstRecord = fs.readFileSync(firstFile, 'utf8');
+
+  const second = await call(f, 'task', {
+    prompt: 'second',
+    resume: first.data.id,
+    model: 'test/another/model',
+  });
+  assert.equal(second.code, 0, second.stderr);
+  assertAssistantUsage(second.data.jobUsage, { model: 'another/model' });
+  assert.equal(second.data.usage.tokens.total, 90);
+  assert.equal(second.data.usage.cost, 1);
+  const secondFile = path.join(second.data.logDirectory, 'job.json');
+  const secondRecord = fs.readFileSync(secondFile, 'utf8');
+
+  const third = await call(f, 'task', { prompt: 'third', resume: first.data.id });
+  assert.equal(third.code, 0, third.stderr);
+  assertAssistantUsage(third.data.jobUsage);
+  assert.equal(third.data.usage.tokens.total, 135);
+  assert.equal(third.data.usage.cost, 1.5);
+  for (const job of [second.data, third.data]) {
+    assert.equal(job.sessionFile, first.data.sessionFile);
+    assert.equal(job.sessionID, first.data.sessionID);
+  }
+  assert.equal(fs.readFileSync(firstFile, 'utf8'), firstRecord);
+  assert.equal(fs.readFileSync(secondFile, 'utf8'), secondRecord);
+  for (const job of [first.data, second.data, third.data]) {
+    const result = await call(f, 'result', { job: job.id });
+    const status = await call(f, 'status', { job: job.id });
+    assert.equal(result.code, 0, result.stderr);
+    assert.equal(status.code, 0, status.stderr);
+    assert.deepEqual(result.data.jobUsage, job.jobUsage);
+    assert.deepEqual(status.data.jobs[0].jobUsage, job.jobUsage);
+    assert.deepEqual(result.data.usage, job.usage);
+  }
+});
+
+test('job usage counts persisted warming and compaction once and keeps assistant hit rate separate', async (t) => {
+  const out = await call(fixture(t), 'task', { prompt: 'USAGE_OVERHEAD' });
+  assert.equal(out.code, 0, out.stderr);
+  const usage = out.data.jobUsage;
+  assert.equal(usage.scope, 'job');
+  assert.equal(usage.source, 'session_entries');
+  assert.equal(usage.complete, true);
+  assert.equal(usage.records, 3);
+  assert.deepEqual(usage.tokens, {
+    input: 18,
+    output: 8,
+    cacheRead: 104,
+    cacheWrite: 6,
+    total: 136,
+  });
+  assert.equal(usage.cost, 0.875);
+  assert.equal(usage.costSource, 'estimated');
+  assert.equal(usage.assistantCacheHitRate, 0.6);
+  const groups = Object.fromEntries(usage.breakdown.map((entry) => [entry.kind, entry]));
+  assert.deepEqual(Object.keys(groups).sort(), ['assistant', 'cache_warm', 'compaction']);
+  assert.equal(groups.assistant.tokens.total, 45);
+  assert.equal(groups.assistant.provider, 'test');
+  assert.equal(groups.assistant.model, 'model');
+  assert.equal(groups.cache_warm.tokens.total, 81);
+  assert.equal(groups.cache_warm.cacheHitRate, 1);
+  assert.equal(groups.compaction.tokens.total, 10);
+  assert.equal(groups.compaction.provider, null);
+  assert.equal(groups.compaction.model, null);
+  assert.deepEqual(usage.warnings, []);
+  assert.deepEqual(out.data.usage.tokens, usage.tokens);
+  assert.equal(out.data.usage.cost, usage.cost);
+});
+
+test('missing session ledger keeps known RPC usage and reports incomplete accounting', async (t) => {
+  const f = fixture(t);
+  f.env.FAKE_NO_SESSION = '1';
+  const out = await call(f, 'task', { prompt: 'completed without a ledger' });
+  assert.equal(out.code, 0, out.stderr);
+  assert.equal(out.data.status, 'completed');
+  const usage = out.data.jobUsage;
+  assert.equal(usage.scope, 'job');
+  assert.equal(usage.source, 'rpc_events');
+  assert.equal(usage.complete, false);
+  assert.equal(usage.records, 1);
+  assert.deepEqual(usage.tokens, {
+    input: 12,
+    output: 5,
+    cacheRead: 24,
+    cacheWrite: 4,
+    total: 45,
+  });
+  assert.equal(usage.cost, 0.5);
+  assert.equal(usage.costSource, 'estimated');
+  assert.equal(usage.assistantCacheHitRate, 0.6);
+  assert.ok(usage.warnings.length > 0);
+  assert.equal(fs.existsSync(out.data.sessionFile), false);
+});
+
 test('model and thinking never silently fall back', async (t) => {
   const f = fixture(t);
   assert.equal(
@@ -310,6 +444,8 @@ for (const [prompt, status] of [
     const out = await call(fixture(t), 'task', { prompt });
     assert.equal(out.code, 1, out.stderr);
     assert.equal(out.data.status, status);
+    if (['ERROR_ZERO', 'LENGTH'].includes(prompt))
+      assertAssistantUsage(out.data.jobUsage, { complete: false });
   });
 }
 
@@ -317,14 +453,14 @@ test('agent_end before a successful retry is not final completion', async (t) =>
   const out = await call(fixture(t), 'task', { prompt: 'RETRY' });
   assert.equal(out.code, 0, out.stderr);
   assert.equal(out.data.text, 'Fixture response ✓');
+  assertAssistantUsage(out.data.jobUsage, { records: 2 });
 });
 
 test('deadline kills a hung worker and releases the lock', async (t) => {
   const f = fixture(t);
-  assert.equal(
-    (await call(f, 'task', { prompt: 'HANG', timeoutSeconds: 1 })).data.status,
-    'timed_out',
-  );
+  const out = await call(f, 'task', { prompt: 'HANG', timeoutSeconds: 1 });
+  assert.equal(out.data.status, 'timed_out');
+  assertAssistantUsage(out.data.jobUsage, { complete: false });
   assert.equal((await call(f, 'task', { prompt: 'next' })).code, 0);
 });
 
@@ -338,7 +474,10 @@ test('concurrent writers are refused and cancel clears queued work before abort'
   assert.equal(busy.code, 1);
   assert.match(busy.stderr, /Workspace busy/);
   assert.equal((await call(f, 'cancel', { job: active.id })).data.cancellationRequested, true);
-  assert.equal((await run.done).data.status, 'cancelled');
+  const out = await run.done;
+  assert.equal(out.data.status, 'cancelled');
+  assertAssistantUsage(out.data.jobUsage, { complete: false });
+  assert.deepEqual((await call(f, 'result', { job: active.id })).data.jobUsage, out.data.jobUsage);
   const types = JSON.parse(fs.readFileSync(f.env.FAKE_RECORD, 'utf8')).requests.map((r) => r.type);
   assert.ok(types.indexOf('clear_queue') < types.indexOf('abort'));
   assert.equal((await call(f, 'cancel', { job: active.id })).data.cancellationRequested, false);

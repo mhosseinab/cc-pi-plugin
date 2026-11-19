@@ -82,6 +82,8 @@ Restrict an investigation to Pi's read tools:
 
 Task tools default to `read,bash,edit,write,grep,find,ls`. Reviews always use `read,grep,find,ls`, start a fresh session, and do not apply fixes or run tests. Claude verifies findings and runs checks separately.
 
+Review prompts place the shared instructions, target, and diff before the review focus. Reviews of unchanged evidence can share a longer prompt prefix; actual cache reuse depends on the provider.
+
 ### Background jobs, steering, and continuation
 
 ```text
@@ -96,6 +98,12 @@ Task tools default to `read,bash,edit,write,grep,find,ls`. Reviews always use `r
 Use the full job ID returned by the bridge. Steering queues new instructions for an active worker; a delivery receipt is not proof that the requested change was completed. Resume starts a new job using the earlier job's explicit session and recorded model, thinking level, and tools. There is no automatic continuation of a global last session.
 
 Background jobs use Claude's own Bash background execution and depend on its host process. One worker runs in each canonical worktree at a time. Use separate Git worktrees for concurrent tasks, then inspect and integrate their changes yourself. The lock cannot stop a person or another program from editing the same files.
+
+### Usage and cache reporting
+
+`/pi:result JOB_ID` reports usage for that job, including a resumed job's new work: input, cache-read, cache-write, and output tokens; the cache-hit percentage for its main assistant calls; and recorded cost in USD. Costs identify whether they are estimated, provider-reported, or mixed. An incomplete report keeps known usage and shows its limits; unavailable usage or cost is not evidence that a task was free.
+
+The result also retains cumulative Pi session totals. Those include earlier resumed work, so do not add them together across jobs. See [usage and cache accounting](docs/runtime.md#usage-and-cache-accounting) for the report fields and sources. Reporting does not change Pi's cache retention, warming, or session-resume policy.
 
 ## Commands
 
