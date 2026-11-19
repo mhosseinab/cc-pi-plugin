@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import { JobUsage } from '../plugins/pi/scripts/lib/usage.mjs';
 
@@ -287,4 +288,29 @@ test('a missing cost cannot make a known subtotal look like a complete provider 
   assert.equal(report.breakdown[0].cost, null);
   assert.equal(report.breakdown[0].costSource, 'unknown');
   assert.equal(report.records, 2);
+});
+
+test('a session replaced with a FIFO cannot block final accounting or lock cleanup', (t) => {
+  const f = fixture(t);
+  execFileSync('mkfifo', [f.file]);
+  const script = `
+    import { JobUsage } from ${JSON.stringify(new URL('../plugins/pi/scripts/lib/usage.mjs', import.meta.url).href)};
+    const tracker = new JobUsage();
+    tracker.start(JSON.parse(process.argv[1]));
+    process.stdout.write(JSON.stringify(tracker.finish('failed')));
+  `;
+  const out = spawnSync(
+    process.execPath,
+    ['--input-type=module', '-e', script, JSON.stringify(f.job)],
+    {
+      encoding: 'utf8',
+      timeout: 5000,
+    },
+  );
+  assert.ifError(out.error);
+  assert.equal(out.status, 0, out.stderr);
+  const report = JSON.parse(out.stdout);
+  assert.equal(report.complete, false);
+  assert.equal(report.source, 'rpc_events');
+  assert.equal(report.cost, null);
 });

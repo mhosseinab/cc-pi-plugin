@@ -4,9 +4,9 @@ Date: 2026-11-19. Candidate: cc-pi-plugin 1.2.0.
 
 ## 1.2.0 verification
 
-- On Linux with Node.js 26.13.0 and Pi 1.5.2, `PI_LIVE_BIN=<local Pi> npm run check` passed ESLint, Prettier, and all **58 tests**, with no failures or skips. Provider tests used only a deterministic local service with synthetic credentials.
+- On Linux with Node.js 26.13.0 and Pi 1.5.2, `PI_LIVE_BIN=<local Pi> npm run check` passed ESLint, Prettier, and all **59 tests**, with no failures or skips. Provider tests used only a deterministic local service with synthetic credentials.
 - Real Pi usage normalization reported 70 tokens for a two-turn job, then 35 tokens for each continuation while session totals reached 105 and 140. Continuing from the original ancestor job counted only the newest work, and the original saved report remained unchanged. These are synthetic accounting checks, not measured provider cache savings.
-- Regression coverage includes failed attempts and retries, cancellation and timeouts, partial streaming usage, missing or rewritten session logs, symlink refusal, missing costs, provider-reported versus estimated costs, and warming/compaction without double counting. Cache-hit calculations exclude warming and summaries from main assistant usage.
+- Regression coverage includes failed attempts and retries, cancellation and timeouts, partial streaming usage, missing or rewritten session logs, symlink refusal, nonblocking rejection of FIFO session paths, missing costs, provider-reported versus estimated costs, and warming/compaction without double counting. Cache-hit calculations exclude warming and summaries from main assistant usage.
 - Normal, adversarial, and custom-focus reviews share the exact instruction/evidence prefix for unchanged worktree and committed-branch diffs. Real Pi still advertised only the four read tools and rejected a fabricated shell call.
 - Both marketplace and plugin passed Claude Code 2.1.310 strict validation. `npm run package` built the tracked-source archive. The validator's separate optional catalog-icon advisory remains unchanged.
 - An independent implementation review found and verified fixes for unfinished streaming usage and unknown-cost propagation; no blocking findings remained.

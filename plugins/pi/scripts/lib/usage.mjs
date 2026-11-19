@@ -158,7 +158,11 @@ class UsageTotals {
 function openSession(file, directory, sessionID) {
   if (path.dirname(fs.realpathSync(file)) !== fs.realpathSync(directory))
     throw new Error('Usage session path is outside its assigned directory.');
-  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  // A worker can replace its session path. Opening a FIFO must not stall cleanup.
+  const fd = fs.openSync(
+    file,
+    fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK,
+  );
   try {
     const stat = fs.fstatSync(fd);
     if (!stat.isFile()) throw new Error('Usage session is not a regular file.');
