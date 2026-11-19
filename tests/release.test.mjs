@@ -118,12 +118,13 @@ test(
         .slice('CC_RELEASE_RESULT '.length),
     );
     assert.equal(result.version, '1.0.0');
+    assert.equal(result.minorVersion, '1.1.0');
     assert.equal(result.repeatedRelease, false);
     assert.equal(
       git('show', 'v1.0.0:plugins/pi/.claude-plugin/plugin.json').includes('"version": "1.0.0"'),
       true,
     );
-    assert.equal(git('log', '-1', '--format=%s'), 'chore(release): 1.0.0 [skip ci]');
+    assert.equal(git('log', '-1', '--format=%s'), 'chore(release): 1.1.0 [skip ci]');
     const remoteHead = execFileSync('git', ['--git-dir', remote, 'rev-parse', 'main'], {
       encoding: 'utf8',
     }).trim();
@@ -131,5 +132,25 @@ test(
     const archive = path.join(root, 'dist/cc-pi-plugin-1.0.0.tar.gz');
     assert.ok(fs.existsSync(archive));
     assert.ok(fs.existsSync(`${archive}.sha256`));
+    assert.equal(
+      JSON.parse(git('show', 'v1.1.0:plugins/pi/.claude-plugin/plugin.json')).version,
+      '1.1.0',
+    );
+    const minorArchive = path.join(root, 'dist/cc-pi-plugin-1.1.0.tar.gz');
+    assert.ok(fs.existsSync(minorArchive));
+    assert.ok(fs.existsSync(`${minorArchive}.sha256`));
+    const archivedManifest = JSON.parse(
+      execFileSync(
+        'tar',
+        ['-xOzf', minorArchive, 'cc-pi-plugin/plugins/pi/.claude-plugin/plugin.json'],
+        {
+          encoding: 'utf8',
+        },
+      ),
+    );
+    assert.equal(archivedManifest.version, '1.1.0');
+    const catalog = JSON.parse(git('show', 'v1.1.0:.claude-plugin/marketplace.json'));
+    assert.equal(catalog.plugins[0].version, '1.1.0');
+    assert.equal(catalog.plugins[0].source.ref, 'v1.1.0');
   },
 );

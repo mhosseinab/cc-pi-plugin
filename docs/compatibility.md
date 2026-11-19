@@ -4,16 +4,17 @@ The bridge accepts stable Pi versions **>=1.5.2 <2.0.0** and checks the required
 
 Accepted versions and tested versions are different. Pi 1.5.2 is the initial contract baseline; inspect CI and the validation record for versions and environments actually exercised. Accepting a newer stable 1.x version is not a claim that every future release was tested.
 
-| Component         | Requirement                                               |
-| ----------------- | --------------------------------------------------------- |
-| Pi package        | `@earendil-works/pi-coding-agent`                         |
-| Pi binary         | `pi`, or an executable selected with `CC_PI_BIN`          |
-| Pi version        | Stable `>=1.5.2 <2.0.0` plus required RPC capabilities    |
-| Node.js           | `>=22.19.0`                                               |
-| Claude Code       | Plugin support; validate manifests with the installed CLI |
-| Git               | Required for reviews and worktree resolution              |
-| Operating systems | POSIX process groups on Linux/macOS; WSL2 on Windows      |
-| Provider          | Existing trusted Pi configuration and credentials         |
+| Component                   | Requirement                                               |
+| --------------------------- | --------------------------------------------------------- |
+| Pi package                  | `@earendil-works/pi-coding-agent`                         |
+| Pi binary                   | `pi`, or an executable selected with `CC_PI_BIN`          |
+| Pi version                  | Stable `>=1.5.2 <2.0.0` plus required RPC capabilities    |
+| Node.js runtime             | `>=22.19.0`                                               |
+| Development/release Node.js | `>=26.13.0` for semantic-release 26                       |
+| Claude Code                 | Plugin support; validate manifests with the installed CLI |
+| Git                         | Required for reviews and worktree resolution              |
+| Operating systems           | POSIX process groups on Linux/macOS; WSL2 on Windows      |
+| Provider                    | Existing trusted Pi configuration and credentials         |
 
 The older `@mariozechner/pi-coding-agent` package and other programs called `pi` are not this project's compatibility target. A matching binary name alone does not prove a compatible runtime.
 

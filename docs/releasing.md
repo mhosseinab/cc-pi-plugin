@@ -1,6 +1,8 @@
 # Releases
 
-The `release` job in `.github/workflows/ci.yml` runs only after a push to `main` passes the Linux/macOS Node 22/24 checks, Pi contract tests, and Claude Code manifest validation. Pull requests cannot publish. Release jobs are serialized and cannot cancel one another midway.
+The `release` job in `.github/workflows/ci.yml` runs only after a push to `main` passes the Node 26 tooling check, Linux/macOS Node 22/24/26 runtime and Pi contract tests, and Claude Code manifest validation. Pull requests cannot publish. Release jobs are serialized and cannot cancel one another midway.
+
+The release job and full development checks use Node.js **26.13 or later**, as required by semantic-release 26. The plugin runtime remains compatible with Node.js **22.19 or later**. Runtime jobs do not install the development dependency graph.
 
 ## Repository setup
 
@@ -69,7 +71,7 @@ After `npm ci`, preview a release from a checkout with the real origin and relea
 GITHUB_REPOSITORY=mhosseinab/cc-pi-plugin npm run release:dry-run
 ```
 
-Provide `GITHUB_TOKEN` through the environment when required. A dry run checks access and determines the next version and notes, but skips release preparation and publication. Do not put tokens in source files or command arguments. Run live releases through the configured CI job.
+Provide `GITHUB_TOKEN` through the environment when required. A dry run checks branch and tag push permissions, confirms that the branch is up to date, and determines the next version and notes. It skips release preparation and publication. Do not put tokens in source files or command arguments. Run live releases through the configured CI job.
 
 To verify a downloaded archive, place it beside its checksum file and run one of:
 
@@ -85,6 +87,8 @@ Use the filename for the version you downloaded. A checksum detects accidental c
 
 After a failed release, inspect the release commit, tag, GitHub Release, and assets before retrying. They are not one atomic transaction. If the tag exists but publication failed, recover the missing release or assets from that exact tag. A rerun may otherwise report no new releasable commits.
 
-`tests/release.test.mjs` runs preparation, a dry run, metadata commit, tag push, archive/checksum creation, and a repeat no-op against an isolated local bare Git remote. It never publishes to GitHub and does not establish that the real repository grants release permissions.
+`tests/release.test.mjs` runs preparation, a dry run, initial and minor releases, metadata commits, tag pushes, archive/checksum creation, real release-note generation, and repeat no-ops against an isolated local bare Git remote. It never publishes to GitHub and does not establish that the real repository grants release permissions.
 
 References: [semantic-release with GitHub Actions](https://semantic-release.gitbook.io/semantic-release/recipes/ci-configurations/github-actions), [release commit plugin](https://github.com/semantic-release/git), [GitHub release plugin](https://github.com/semantic-release/github), and [Claude marketplace reference](https://code.claude.com/docs/en/plugins/marketplace-reference).
+
+Version upgrade reference: [semantic-release 26.0.0 release notes](https://github.com/semantic-release/semantic-release/releases/tag/v26.0.0) and [26.0.1 source/API](https://github.com/semantic-release/semantic-release/blob/v26.0.1/index.js).
