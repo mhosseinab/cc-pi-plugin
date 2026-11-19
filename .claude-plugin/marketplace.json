@@ -1,0 +1,17 @@
+{
+  "name": "cc-pi",
+  "owner": {
+    "name": "mhosseinab"
+  },
+  "plugins": [
+    {
+      "name": "pi",
+      "source": "./plugins/pi",
+      "description": "Delegate tasks and restricted code reviews to local Pi workers",
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "description": "Delegate Claude Code tasks and reviews to local Pi agents."
+  }
+}

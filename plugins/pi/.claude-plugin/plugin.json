@@ -1,0 +1,13 @@
+{
+  "name": "pi",
+  "version": "1.0.0",
+  "description": "Delegate implementation, investigation, and restricted reviews to Pi workers",
+  "author": {
+    "name": "Hossein",
+    "url": "https://github.com/mhosseinab"
+  },
+  "license": "GPL-3.0-only",
+  "keywords": ["pi", "delegation", "agents", "review"],
+  "repository": "https://github.com/mhosseinab/cc-pi-plugin",
+  "homepage": "https://github.com/mhosseinab/cc-pi-plugin#readme"
+}

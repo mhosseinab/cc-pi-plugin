@@ -1,0 +1,23 @@
+cc-pi-plugin — Pi workers for Claude Code
+
+Copyright (c) 2026 cc-opencode contributors.
+Copyright (c) 2026 cc-pi contributors.
+
+This project is adapted from mhosseinab/cc-opencode-plugin:
+https://github.com/mhosseinab/cc-opencode-plugin
+
+Modified for Pi on 2026-11-19. The adaptation was based on upstream commit
+e09fed8d0bb9183769d2e3004ea5b132bc1ee2e0. See:
+https://github.com/mhosseinab/cc-opencode-plugin/commit/e09fed8d0bb9183769d2e3004ea5b132bc1ee2e0
+
+The original subprocess, job-state, review-scope, command, test, packaging,
+and release structure informed this project. Pi-specific RPC integration,
+model and thinking selection, worker controls, and documentation are adapted
+for this repository.
+
+This project is distributed under the GNU General Public License version 3
+only (SPDX-License-Identifier: GPL-3.0-only). The complete license is in
+LICENSE. This notice does not modify its terms.
+
+Pi and Claude Code are separate projects, not bundled with this plugin.
+Their names identify compatibility and do not imply endorsement.
