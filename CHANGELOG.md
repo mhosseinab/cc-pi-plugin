@@ -1,9 +1,3 @@
-# [1.2.0](https://github.com/mhosseinab/cc-pi-plugin/compare/v1.1.0...v1.2.0) (2026-11-19)
-
-### Features
-
-- report per-job usage and improve review prompt reuse ([#6](https://github.com/mhosseinab/cc-pi-plugin/issues/6)) ([45a9249](https://github.com/mhosseinab/cc-pi-plugin/commit/45a924985980f5d52f015533a085ed401adfbad3))
-
 # [1.1.0](https://github.com/mhosseinab/cc-pi-plugin/compare/v1.0.0...v1.1.0) (2026-11-19)
 
 ### Features
