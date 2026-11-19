@@ -1,6 +1,8 @@
 # Contributing
 
-Use Node.js 22.19 or later and a supported Pi release. Install development dependencies with `npm ci`, then run `npm run check` before submitting a change. The installed plugin uses Node's standard library; keep runtime npm dependencies at zero.
+Use Node.js **26.13 or later** for development and releases; semantic-release 26 requires this version. Install development dependencies with `npm ci`, then run `npm run check` before submitting a change.
+
+The installed plugin still runs on Node.js **22.19 or later** and uses only Node's standard library. Keep runtime npm dependencies at zero. `npm run test:runtime` needs no dependency installation and exercises the bridge on Node 22/24/26 in CI. The full check, including the release integration test, runs on Node 26.
 
 For Pi CLI, RPC, session, or tool-policy changes, run the real-binary contract test:
 

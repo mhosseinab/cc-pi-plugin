@@ -144,6 +144,8 @@ Compatible stable Pi updates within the accepted range are allowed. Supported an
 
 ## Development
 
+Use Node.js **26.13 or later** for repository tooling and releases. The installed plugin still needs only Node.js **22.19 or later**. Runtime compatibility tests run separately on Node 22, 24, and 26 without development dependencies.
+
 ```bash
 npm ci
 npm run check

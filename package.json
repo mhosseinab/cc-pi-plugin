@@ -6,7 +6,7 @@
   "license": "GPL-3.0-only",
   "type": "module",
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=26.13.0"
   },
   "scripts": {
     "test": "node --test tests/*.test.mjs",
@@ -17,7 +17,10 @@
     "check": "npm run lint && npm run format:check && npm test",
     "package": "node scripts/package.mjs",
     "release": "semantic-release",
-    "release:dry-run": "semantic-release --dry-run"
+    "release:dry-run": "semantic-release --dry-run",
+    "test:runtime": "node --test tests/runtime.test.mjs tests/reviewer-policy.test.mjs tests/package.test.mjs tests/plugin.test.mjs",
+    "test:release": "node --test tests/release.test.mjs",
+    "test:live": "node --test tests/live.test.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -29,11 +32,10 @@
     "eslint": "10.15.0",
     "globals": "17.14.0",
     "prettier": "3.9.10",
-    "semantic-release": "25.0.9"
+    "semantic-release": "26.0.1"
   },
   "overrides": {
-    "minimatch": "11.0.9",
-    "npm": "11.21.2"
+    "minimatch": "11.0.9"
   },
   "repository": {
     "type": "git",
