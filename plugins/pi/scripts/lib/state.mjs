@@ -54,7 +54,16 @@ export function listJobs(state) {
   return fs
     .readdirSync(state)
     .filter((id) => /^[a-f0-9]{32}$/.test(id))
-    .map((id) => readJob(state, id))
+    .flatMap((id) => {
+      try {
+        return [readJob(state, id)];
+      } catch (error) {
+        // A runner creates its private directory before publishing job.json.
+        // Skip that startup window, but never hide corrupt or unreadable metadata.
+        if (error.cause?.code === 'ENOENT') return [];
+        throw error;
+      }
+    })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 export function live(pid) {

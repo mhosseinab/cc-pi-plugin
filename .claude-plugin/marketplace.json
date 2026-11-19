@@ -6,7 +6,12 @@
   "plugins": [
     {
       "name": "pi",
-      "source": "./plugins/pi",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/mhosseinab/cc-pi-plugin.git",
+        "path": "plugins/pi",
+        "ref": "v1.0.0"
+      },
       "description": "Delegate tasks and restricted code reviews to local Pi workers",
       "version": "1.0.0"
     }
