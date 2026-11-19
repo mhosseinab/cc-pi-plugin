@@ -8,11 +8,12 @@ Linux, Node.js 24.22.3, Git 2.52.0, Pi 1.5.2, and Claude Code 2.1.310. Pi was in
 
 ## Completed verification
 
-- `PI_LIVE_BIN=<local Pi 1.5.2> npm run check`: ESLint, Prettier, and all **42 tests passed**, zero failures or skips.
+- `PI_LIVE_BIN=<local Pi 1.5.2> npm run check`: ESLint, Prettier, and all **43 tests passed**, zero failures or skips.
 - Real Pi edited a file, resumed an explicit session with prior history, rejected an unknown model and unsupported thinking, and reported provider authentication errors, token exhaustion, and timeouts accurately.
 - Real review requests advertised only `read`, `grep`, `find`, and `ls`. A fabricated shell call was rejected. Project/global extensions and MCP remained unloaded; a project session-directory override was ignored.
 - Process tests covered shell-like prompt text, Unicode framing, malformed RPC, retries, early exits, incomplete responses, bounded controls, concurrent-writer refusal, steering, cancellation ordering, interruption during startup, stubborn descendants, stale locks, and session ownership.
 - Regression tests verified symlinked state-parent continuation and prevented Git fsmonitor, content-filter, and submodule-helper execution during evidence collection.
+- The first remote macOS/Node 22 run exposed a status race during job creation. Status discovery now skips a job directory until its metadata is published, while still rejecting corrupt metadata. A deterministic regression covers the startup window.
 - Both marketplace and plugin passed `claude plugin validate --strict`.
 - An isolated Claude configuration successfully installed `pi@cc-pi` 1.0.0 from the local marketplace, reported it enabled, and discovered all 11 commands plus the delegation skill. The cached plugin contained 26 regular files, no symlinks, and its runtime worked from an unrelated directory.
 - Packaging and release tests verified synchronized versions, tagged release sources, complete tracked-source archives, checksums, path/symlink protections, Conventional Commit version selection, and a semantic-release commit/tag against an isolated local bare Git remote.
